@@ -38,7 +38,7 @@ local ImGui = {
 
 	Windows = {},
 	Animation = TweenInfo.new(0.1),
-	UIAssetId = "rbxassetid://76246418997296"
+	UIAssetId = "rbxassetid://114909802216856"
 }
 
 
@@ -73,7 +73,7 @@ ImGui.NoWarnings = not IsStudio
 --// Prefabs
 function ImGui:FetchUI()
 	--// Cache check 
-	local CacheName = "DepsoImGui"
+	local CacheName = "ImGui"
 	if _G[CacheName] then
 		self:Warn("Prefabs loaded from Cache")
 		return _G[CacheName]
@@ -86,8 +86,8 @@ function ImGui:FetchUI()
 		local UIAssetId = ImGui.UIAssetId
 		UI = game:GetObjects(UIAssetId)[1]
 	else --// Studio
-		local UIName = "DepsoImGui"
-		UI = PlayerGui:FindFirstChild(UIName) or script.DepsoImGui
+		local UIName = "ImGui"
+		UI = PlayerGui:FindFirstChild(UIName) or script.ImGui
 	end
 
 	_G[CacheName] = UI
@@ -439,7 +439,7 @@ function ImGui:ContainerClass(Frame: Frame, Class, Window)
 
 			--// Fire callback
 			Callback(Value)
-			
+
 			return Config
 		end
 		Config:SetTicked(Value, true)
@@ -615,7 +615,7 @@ function ImGui:ContainerClass(Frame: Frame, Class, Window)
 			Config:UpdateLineNumbers()
 			return Config
 		end
-		
+
 		function Config:GetValue()
 			return Source.Text
 		end
@@ -628,10 +628,10 @@ function ImGui:ContainerClass(Frame: Frame, Class, Window)
 
 		function Config:AppendText(...)
 			if not Config.Enabled then return end
-			
+
 			local MaxLines = Config.MaxLines or 100
 			local NewString = "\n" .. ImGui:Concat({...}, " ") 
-			
+
 			Source.Text ..= NewString
 			Config:UpdateLineNumbers()
 
@@ -999,16 +999,24 @@ function ImGui:ContainerClass(Frame: Frame, Class, Window)
 			local func = Config.Callback or NullFunction
 			return func(ObjectClass, ...)
 		end
+		
+		local function KeybindChangedCallback(...)
+			local func = Config.KeybindChangedCallback or NullFunction
+			return func(ObjectClass, ...)
+		end
 
 		function Config:SetValue(NewKey: Enum.KeyCode)
-			if not NewKey then return end
-			ValueText.Text = NewKey.Name
+			if typeof(NewKey) == nil then return end
+			
 			Config.Value = NewKey
 
-			if NewKey == Enum.KeyCode.Backspace then
+			if NewKey == false then
 				ValueText.Text = "Not set"
 				return
 			end
+			
+			ValueText.Text = NewKey.Name
+			
 		end
 		Config:SetValue(Key)
 
@@ -1019,10 +1027,15 @@ function ImGui:ContainerClass(Frame: Frame, Class, Window)
 
 			if NewKey.KeyCode.Name == "Unknown" then
 				return Config:SetValue(Key)
+			elseif NewKey.KeyCode == Enum.KeyCode.Backspace then
+				Config:SetValue(false)
+				KeybindChangedCallback(false)
+				return
 			end
 
 			wait(.1) --// 👍
 			Config:SetValue(NewKey.KeyCode)
+			KeybindChangedCallback(NewKey.KeyCode)
 		end)
 
 		Config.Connection = UserInputService.InputBegan:Connect(function(Input, GameProcessed)
@@ -1166,14 +1179,14 @@ function ImGui:Dropdown(Config)
 			return Selected(NewItem)
 		end)
 	end
-	
+
 	--// Configure size of the frame
-		-- Roblox does not support UISizeConstraint on a scrolling frame grr
-	
+	-- Roblox does not support UISizeConstraint on a scrolling frame grr
+
 	local MaxSizeY = Config.MaxSizeY or 200
 	local YSize = math.clamp(Selection.AbsoluteCanvasSize.Y, Size.Y, MaxSizeY)
 	Selection.Size = UDim2.fromOffset(Size.X-Padding, YSize)
-	
+
 	return Config
 end
 
@@ -1422,20 +1435,20 @@ function ImGui:SetWindowProps(Properties, IgnoreWindows)
 	local Module = {
 		OldProperties = {}
 	}
-	
+
 	--// Collect windows & set properties
 	for Window in next, ImGui.Windows do
 		if table.find(IgnoreWindows, Window) then continue end
-		
+
 		local OldValues = {}
 		Module.OldProperties[Window] = OldValues
-		
+
 		for Key, Value in next, Properties do
 			OldValues[Key] = Window[Key]
 			Window[Key] = Value
 		end
 	end
-	
+
 	--// Revert to previous values
 	function Module:Revert()
 		for Window in next, ImGui.Windows do
@@ -1447,7 +1460,7 @@ function ImGui:SetWindowProps(Properties, IgnoreWindows)
 			end
 		end
 	end
-	
+
 	return Module
 end
 
@@ -1703,7 +1716,7 @@ function ImGui:CreateModal(Config)
 	Config = Window:CreateTab({
 		Visible = true
 	})
-	
+
 	--// Disable other windows
 	local WindowManger = ImGui:SetWindowProps({
 		Interactable = false
@@ -1718,7 +1731,7 @@ function ImGui:CreateModal(Config)
 		Tween.Completed:Connect(function()
 			ModalEffect:Remove()
 		end)
-		
+
 		WindowManger:Revert()
 		WindowClose()
 	end
